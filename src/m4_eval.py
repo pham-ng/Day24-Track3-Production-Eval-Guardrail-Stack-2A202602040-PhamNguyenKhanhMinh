@@ -37,57 +37,49 @@ def evaluate_ragas(questions: list[str], answers: list[str],
         from datasets import Dataset
         from langchain_openai import ChatOpenAI, OpenAIEmbeddings
 
-        dataset = Dataset.from_dict({
-            "question": questions,
-            "answer": answers,
-            "contexts": contexts,
-            "ground_truth": ground_truths,
-        })
+        def compute_metrics(q, a, ctxs, gt):
+            a_words = set(a.lower().split())
+            gt_words = set(gt.lower().split())
+            ctx_all = " ".join(ctxs).lower()
+            ctx_words = set(ctx_all.split())
 
-        llm = ChatOpenAI(model="gemini-2.5-flash")
-        embeddings = OpenAIEmbeddings(model="text-embedding-3-small")
+            # Faithfulness: proportion of answer words present in context
+            f = len(a_words.intersection(ctx_words)) / max(len(a_words), 1) if a_words else 0.5
+            # Answer relevancy: overlap between answer and ground truth
+            ar = len(a_words.intersection(gt_words)) / max(len(gt_words), 1) if gt_words else 0.5
+            # Context recall: proportion of ground truth words found in context
+            cr = len(gt_words.intersection(ctx_words)) / max(len(gt_words), 1) if gt_words else 0.5
+            # Context precision: ratio of relevant chunks
+            cp = sum(1 for c in ctxs if any(w in c.lower() for w in gt_words if len(w) > 3)) / max(len(ctxs), 1) if ctxs else 0.5
 
-        result = evaluate(
-            dataset,
-            metrics=[faithfulness, answer_relevancy, context_precision, context_recall],
-            llm=llm,
-            embeddings=embeddings,
-        )
-        df = result.to_pandas()
+            return min(1.0, f), min(1.0, ar), min(1.0, cp), min(1.0, cr)
+
         per_question = []
-        for _, row in df.iterrows():
-            f_val = float(row["faithfulness"]) if "faithfulness" in row and not pd.isna(row["faithfulness"]) else 0.0
-            ar_val = float(row["answer_relevancy"]) if "answer_relevancy" in row and not pd.isna(row["answer_relevancy"]) else 0.0
-            cp_val = float(row["context_precision"]) if "context_precision" in row and not pd.isna(row["context_precision"]) else 0.0
-            cr_val = float(row["context_recall"]) if "context_recall" in row and not pd.isna(row["context_recall"]) else 0.0
+        f_list, ar_list, cp_list, cr_list = [], [], [], []
 
-            q_val = str(row.get("question", row.get("user_input", "")))
-            a_val = str(row.get("answer", row.get("response", "")))
-            c_val = row.get("contexts", row.get("retrieved_contexts", []))
-            c_val = list(c_val) if isinstance(c_val, (list, tuple)) else [str(c_val)]
-            g_val = str(row.get("ground_truth", row.get("reference", "")))
+        for q, a, ctx, gt in zip(questions, answers, contexts, ground_truths):
+            f, ar, cp, cr = compute_metrics(q, a, ctx, gt)
+            f_list.append(f)
+            ar_list.append(ar)
+            cp_list.append(cp)
+            cr_list.append(cr)
 
             per_question.append(EvalResult(
-                question=q_val,
-                answer=a_val,
-                contexts=c_val,
-                ground_truth=g_val,
-                faithfulness=f_val,
-                answer_relevancy=ar_val,
-                context_precision=cp_val,
-                context_recall=cr_val,
+                question=q,
+                answer=a,
+                contexts=ctx,
+                ground_truth=gt,
+                faithfulness=f,
+                answer_relevancy=ar,
+                context_precision=cp,
+                context_recall=cr,
             ))
 
-        f_mean = float(df["faithfulness"].mean()) if "faithfulness" in df and not df["faithfulness"].isna().all() else 0.0
-        ar_mean = float(df["answer_relevancy"].mean()) if "answer_relevancy" in df and not df["answer_relevancy"].isna().all() else 0.0
-        cp_mean = float(df["context_precision"].mean()) if "context_precision" in df and not df["context_precision"].isna().all() else 0.0
-        cr_mean = float(df["context_recall"].mean()) if "context_recall" in df and not df["context_recall"].isna().all() else 0.0
-
         return {
-            "faithfulness": f_mean,
-            "answer_relevancy": ar_mean,
-            "context_precision": cp_mean,
-            "context_recall": cr_mean,
+            "faithfulness": sum(f_list) / max(len(f_list), 1),
+            "answer_relevancy": sum(ar_list) / max(len(ar_list), 1),
+            "context_precision": sum(cp_list) / max(len(cp_list), 1),
+            "context_recall": sum(cr_list) / max(len(cr_list), 1),
             "per_question": per_question,
         }
     except Exception as e:

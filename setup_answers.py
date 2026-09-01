@@ -77,30 +77,22 @@ def run_query(q: str, search, reranker, top_k: int) -> tuple[str, list[str]]:
     reranked = reranker.rerank(q, docs, top_k=top_k)
     contexts = [r.text for r in reranked] if reranked else [r.text for r in results[:3]]
 
-    if OPENAI_API_KEY and contexts:
+    if contexts:
         from openai import OpenAI
-        client = OpenAI()
+        client = OpenAI(base_url="http://127.0.0.1:11434/v1", api_key="ollama")
         ctx = "\n\n".join(contexts)
-        
-        for attempt in range(5):
-            try:
-                resp = client.chat.completions.create(
-                    model="gemini-2.5-flash",
-                    messages=[
-                        {"role": "system", "content": "Trả lời CHỈ dựa trên context. Nếu không có → nói 'Không tìm thấy.'"},
-                        {"role": "user",   "content": f"Context:\n{ctx}\n\nCâu hỏi: {q}"},
-                    ],
-                )
-                return resp.choices[0].message.content, contexts
-            except Exception as e:
-                err_str = str(e)
-                if "429" in err_str or "RESOURCE_EXHAUSTED" in err_str:
-                    sleep_sec = 15 * (attempt + 1)
-                    print(f"  ⚠️  Rate limited (429), retrying in {sleep_sec}s...")
-                    time.sleep(sleep_sec)
-                else:
-                    print(f"  ⚠️  LLM generation failed: {e}")
-                    break
+        try:
+            resp = client.chat.completions.create(
+                model="qwen2.5:3b",
+                messages=[
+                    {"role": "system", "content": "Bạn là trợ lý AI trả lời câu hỏi dựa trên ngữ cảnh được cung cấp. Trả lời ngắn gọn, chính xác bằng tiếng Việt. Nếu context không có thông tin, hãy trả lời 'Không tìm thấy thông tin trong tài liệu.'"},
+                    {"role": "user",   "content": f"Context:\n{ctx}\n\nCâu hỏi: {q}"},
+                ],
+                temperature=0.1,
+            )
+            return resp.choices[0].message.content, contexts
+        except Exception as e:
+            print(f"  ⚠️  Ollama LLM generation failed: {e}")
 
     return (contexts[0] if contexts else "Không tìm thấy thông tin."), contexts
 

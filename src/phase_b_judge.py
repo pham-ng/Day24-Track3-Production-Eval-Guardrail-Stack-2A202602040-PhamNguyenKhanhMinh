@@ -43,10 +43,10 @@ Return JSON ONLY:
 {{"winner": "A" or "B" or "tie", "reasoning": "brief explanation", "scores": {{"A": 0.0-1.0, "B": 0.0-1.0}}}}
 """
     from openai import OpenAI
-    client = OpenAI()
+    client = OpenAI(base_url="http://127.0.0.1:11434/v1", api_key="ollama")
     try:
         resp = client.chat.completions.create(
-            model=JUDGE_MODEL,
+            model="qwen2.5:3b",
             messages=[
                 {"role": "system", "content": "You are a RAG evaluator. Return JSON only."},
                 {"role": "user", "content": PROMPT_TEMPLATE.format(
@@ -193,10 +193,10 @@ Model Answer: {model_answer}
 Return JSON ONLY: {{"label": 1}} if accurate/correct, or {{"label": 0}} if inaccurate/wrong.
 """
     from openai import OpenAI
-    client = OpenAI()
+    client = OpenAI(base_url="http://127.0.0.1:11434/v1", api_key="ollama")
     try:
         resp = client.chat.completions.create(
-            model=JUDGE_MODEL,
+            model="qwen2.5:3b",
             messages=[
                 {"role": "system", "content": "You are a RAG evaluator. Return JSON only."},
                 {"role": "user", "content": PROMPT},
