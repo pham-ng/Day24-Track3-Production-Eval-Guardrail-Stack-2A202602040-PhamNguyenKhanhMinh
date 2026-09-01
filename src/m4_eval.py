@@ -27,62 +27,78 @@ def load_test_set(path: str = TEST_SET_PATH) -> list[dict]:
         return json.load(f)
 
 
-def compute_fallback_metrics(q: str, a: str, c: list[str], g: str) -> tuple[float, float, float, float]:
-    """Calculate fallback metrics when RAGAS API/library is unavailable or fails."""
-    ctx_str = " ".join(c).lower()
-    a_words = [w for w in a.lower().split() if len(w) > 2]
-    if not a_words or "không tìm thấy" in a.lower():
-        faithfulness = 0.9 if "không tìm thấy" in g.lower() or not g else 0.4
-    else:
-        overlap = sum(1 for w in a_words if w in ctx_str)
-        faithfulness = min(1.0, max(0.3, overlap / max(1, len(a_words))))
-
-    q_words = [w for w in q.lower().split() if len(w) > 3]
-    q_overlap = sum(1 for w in q_words if w in a.lower())
-    answer_relevancy = min(1.0, max(0.4, 0.6 + (q_overlap / max(1, len(q_words))) * 0.4))
-    if "không tìm thấy" in a.lower():
-        answer_relevancy = 0.5
-
-    g_words = [w for w in g.lower().split() if len(w) > 2]
-    if g_words:
-        cr_overlap = sum(1 for w in g_words if w in ctx_str)
-        context_recall = min(1.0, max(0.1, cr_overlap / len(g_words)))
-    else:
-        context_recall = 1.0
-
-    if c:
-        relevant_chunks = sum(1 for chunk in c if any(w in chunk.lower() for w in g_words[:5]))
-        context_precision = min(1.0, max(0.2, (relevant_chunks / len(c)) * 1.2))
-    else:
-        context_precision = 0.0
-
-    return round(faithfulness, 4), round(answer_relevancy, 4), round(context_precision, 4), round(context_recall, 4)
-
-
 def evaluate_ragas(questions: list[str], answers: list[str],
                    contexts: list[list[str]], ground_truths: list[str]) -> dict:
-    """Run RAGAS evaluation with fast, reliable evaluation engine."""
-    per_question = []
-    for q, a, c, g in zip(questions, answers, contexts, ground_truths):
-        f_v, ar_v, cp_v, cr_v = compute_fallback_metrics(q, a, c, g)
-        per_question.append(EvalResult(
-            question=q, answer=a, contexts=c, ground_truth=g,
-            faithfulness=f_v, answer_relevancy=ar_v,
-            context_precision=cp_v, context_recall=cr_v
-        ))
+    """Run RAGAS evaluation."""
+    try:
+        import pandas as pd
+        from ragas import evaluate
+        from ragas.metrics import faithfulness, answer_relevancy, context_precision, context_recall
+        from datasets import Dataset
+        from langchain_openai import ChatOpenAI, OpenAIEmbeddings
 
-    f_mean = float(sum(p.faithfulness for p in per_question) / max(1, len(per_question)))
-    ar_mean = float(sum(p.answer_relevancy for p in per_question) / max(1, len(per_question)))
-    cp_mean = float(sum(p.context_precision for p in per_question) / max(1, len(per_question)))
-    cr_mean = float(sum(p.context_recall for p in per_question) / max(1, len(per_question)))
+        dataset = Dataset.from_dict({
+            "question": questions,
+            "answer": answers,
+            "contexts": contexts,
+            "ground_truth": ground_truths,
+        })
 
-    return {
-        "faithfulness": round(f_mean, 4),
-        "answer_relevancy": round(ar_mean, 4),
-        "context_precision": round(cp_mean, 4),
-        "context_recall": round(cr_mean, 4),
-        "per_question": per_question,
-    }
+        llm = ChatOpenAI(model="gemini-2.5-flash")
+        embeddings = OpenAIEmbeddings(model="text-embedding-3-small")
+
+        result = evaluate(
+            dataset,
+            metrics=[faithfulness, answer_relevancy, context_precision, context_recall],
+            llm=llm,
+            embeddings=embeddings,
+        )
+        df = result.to_pandas()
+        per_question = []
+        for _, row in df.iterrows():
+            f_val = float(row["faithfulness"]) if "faithfulness" in row and not pd.isna(row["faithfulness"]) else 0.0
+            ar_val = float(row["answer_relevancy"]) if "answer_relevancy" in row and not pd.isna(row["answer_relevancy"]) else 0.0
+            cp_val = float(row["context_precision"]) if "context_precision" in row and not pd.isna(row["context_precision"]) else 0.0
+            cr_val = float(row["context_recall"]) if "context_recall" in row and not pd.isna(row["context_recall"]) else 0.0
+
+            q_val = str(row.get("question", row.get("user_input", "")))
+            a_val = str(row.get("answer", row.get("response", "")))
+            c_val = row.get("contexts", row.get("retrieved_contexts", []))
+            c_val = list(c_val) if isinstance(c_val, (list, tuple)) else [str(c_val)]
+            g_val = str(row.get("ground_truth", row.get("reference", "")))
+
+            per_question.append(EvalResult(
+                question=q_val,
+                answer=a_val,
+                contexts=c_val,
+                ground_truth=g_val,
+                faithfulness=f_val,
+                answer_relevancy=ar_val,
+                context_precision=cp_val,
+                context_recall=cr_val,
+            ))
+
+        f_mean = float(df["faithfulness"].mean()) if "faithfulness" in df and not df["faithfulness"].isna().all() else 0.0
+        ar_mean = float(df["answer_relevancy"].mean()) if "answer_relevancy" in df and not df["answer_relevancy"].isna().all() else 0.0
+        cp_mean = float(df["context_precision"].mean()) if "context_precision" in df and not df["context_precision"].isna().all() else 0.0
+        cr_mean = float(df["context_recall"].mean()) if "context_recall" in df and not df["context_recall"].isna().all() else 0.0
+
+        return {
+            "faithfulness": f_mean,
+            "answer_relevancy": ar_mean,
+            "context_precision": cp_mean,
+            "context_recall": cr_mean,
+            "per_question": per_question,
+        }
+    except Exception as e:
+        print(f"  ⚠️  RAGAS evaluation failed: {e}")
+        return {
+            "faithfulness": 0.0,
+            "answer_relevancy": 0.0,
+            "context_precision": 0.0,
+            "context_recall": 0.0,
+            "per_question": [],
+        }
 
 
 def failure_analysis(eval_results: list[EvalResult], bottom_n: int = 10) -> list[dict]:

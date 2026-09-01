@@ -19,7 +19,7 @@ class RerankResult:
 
 
 class CrossEncoderReranker:
-    def __init__(self, model_name: str = "BAAI/bge-reranker-v2-m3"):
+    def __init__(self, model_name: str = "cross-encoder/ms-marco-MiniLM-L-6-v2"):
         self.model_name = model_name
         self._model = None
 
@@ -33,35 +33,22 @@ class CrossEncoderReranker:
         """Rerank documents: top-20 → top-k."""
         if not documents:
             return []
-        try:
-            model = self._load_model()
-            pairs = [(query, doc["text"]) for doc in documents]
-            scores = model.predict(pairs)
-            if isinstance(scores, (int, float)):
-                scores = [scores]
-            scored = sorted(zip(scores, documents), key=lambda x: float(x[0]), reverse=True)
-            return [
-                RerankResult(
-                    text=doc["text"],
-                    original_score=float(doc.get("score", 0.0)),
-                    rerank_score=float(score),
-                    metadata=doc.get("metadata", {}),
-                    rank=i
-                )
-                for i, (score, doc) in enumerate(scored[:top_k])
-            ]
-        except Exception as e:
-            print(f"Reranker fallback (due to memory/model error): {e}")
-            return [
-                RerankResult(
-                    text=doc["text"],
-                    original_score=float(doc.get("score", 0.0)),
-                    rerank_score=float(doc.get("score", 0.0)),
-                    metadata=doc.get("metadata", {}),
-                    rank=i
-                )
-                for i, doc in enumerate(documents[:top_k])
-            ]
+        model = self._load_model()
+        pairs = [(query, doc["text"]) for doc in documents]
+        scores = model.predict(pairs)
+        if isinstance(scores, (int, float)):
+            scores = [scores]
+        scored = sorted(zip(scores, documents), key=lambda x: float(x[0]), reverse=True)
+        return [
+            RerankResult(
+                text=doc["text"],
+                original_score=float(doc.get("score", 0.0)),
+                rerank_score=float(score),
+                metadata=doc.get("metadata", {}),
+                rank=i
+            )
+            for i, (score, doc) in enumerate(scored[:top_k])
+        ]
 
 
 class FlashrankReranker:

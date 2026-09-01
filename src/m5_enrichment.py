@@ -39,7 +39,7 @@ def summarize_chunk(text: str) -> str:
             from openai import OpenAI
             client = OpenAI()
             resp = client.chat.completions.create(
-                model="gemini-2.5-flash",
+                model="gpt-4o-mini",
                 messages=[
                     {"role": "system", "content": "Tóm tắt đoạn văn sau trong 2-3 câu ngắn gọn bằng tiếng Việt."},
                     {"role": "user", "content": text},
@@ -67,7 +67,7 @@ def generate_hypothesis_questions(text: str, n_questions: int = 3) -> list[str]:
             from openai import OpenAI
             client = OpenAI()
             resp = client.chat.completions.create(
-                model="gemini-2.5-flash",
+                model="gpt-4o-mini",
                 messages=[
                     {"role": "system", "content": f"Dựa trên đoạn văn, tạo {n_questions} câu hỏi mà đoạn văn có thể trả lời. Trả về mỗi câu hỏi trên 1 dòng."},
                     {"role": "user", "content": text},
@@ -97,7 +97,7 @@ def contextual_prepend(text: str, document_title: str = "") -> str:
             from openai import OpenAI
             client = OpenAI()
             resp = client.chat.completions.create(
-                model="gemini-2.5-flash",
+                model="gpt-4o-mini",
                 messages=[
                     {"role": "system", "content": "Viết 1 câu ngắn mô tả đoạn văn này nằm ở đâu trong tài liệu và nói về chủ đề gì. Chỉ trả về 1 câu."},
                     {"role": "user", "content": f"Tài liệu: {document_title}\n\nĐoạn văn:\n{text}"},
@@ -126,7 +126,7 @@ def extract_metadata(text: str) -> dict:
             from openai import OpenAI
             client = OpenAI()
             resp = client.chat.completions.create(
-                model="gemini-2.5-flash",
+                model="gpt-4o-mini",
                 messages=[
                     {"role": "system", "content": 'Trích xuất metadata từ đoạn văn. Trả về JSON: {"topic": "...", "entities": ["..."], "category": "policy|hr|it|finance", "language": "vi|en"}'},
                     {"role": "user", "content": text},
@@ -154,7 +154,7 @@ def _enrich_single_call(text: str, source: str) -> dict:
             from openai import OpenAI
             client = OpenAI()
             resp = client.chat.completions.create(
-                model="gemini-2.5-flash",
+                model="gpt-4o-mini",
                 messages=[
                     {"role": "system", "content": """Phân tích đoạn văn và trả về JSON:
 {

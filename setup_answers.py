@@ -78,20 +78,29 @@ def run_query(q: str, search, reranker, top_k: int) -> tuple[str, list[str]]:
     contexts = [r.text for r in reranked] if reranked else [r.text for r in results[:3]]
 
     if OPENAI_API_KEY and contexts:
-        try:
-            from openai import OpenAI
-            client = OpenAI()
-            ctx = "\n\n".join(contexts)
-            resp = client.chat.completions.create(
-                model="gemini-2.5-flash",
-                messages=[
-                    {"role": "system", "content": "Trả lời CHỈ dựa trên context. Nếu không có → nói 'Không tìm thấy.'"},
-                    {"role": "user",   "content": f"Context:\n{ctx}\n\nCâu hỏi: {q}"},
-                ],
-            )
-            return resp.choices[0].message.content, contexts
-        except Exception as e:
-            print(f"  ⚠️  LLM generation failed: {e}")
+        from openai import OpenAI
+        client = OpenAI()
+        ctx = "\n\n".join(contexts)
+        
+        for attempt in range(5):
+            try:
+                resp = client.chat.completions.create(
+                    model="gemini-2.5-flash",
+                    messages=[
+                        {"role": "system", "content": "Trả lời CHỈ dựa trên context. Nếu không có → nói 'Không tìm thấy.'"},
+                        {"role": "user",   "content": f"Context:\n{ctx}\n\nCâu hỏi: {q}"},
+                    ],
+                )
+                return resp.choices[0].message.content, contexts
+            except Exception as e:
+                err_str = str(e)
+                if "429" in err_str or "RESOURCE_EXHAUSTED" in err_str:
+                    sleep_sec = 15 * (attempt + 1)
+                    print(f"  ⚠️  Rate limited (429), retrying in {sleep_sec}s...")
+                    time.sleep(sleep_sec)
+                else:
+                    print(f"  ⚠️  LLM generation failed: {e}")
+                    break
 
     return (contexts[0] if contexts else "Không tìm thấy thông tin."), contexts
 

@@ -70,7 +70,7 @@ def run_query(query: str, search: HybridSearch, reranker: CrossEncoderReranker) 
             from openai import OpenAI
             client = OpenAI()
             context_str = "\n\n".join(contexts)
-            resp = client.chat.completions.create(model="gemini-2.5-flash", messages=[
+            resp = client.chat.completions.create(model="gpt-4o-mini", messages=[
                 {"role": "system", "content": "Trả lời CHỈ dựa trên context. Nếu không có → nói 'Không tìm thấy.'"},
                 {"role": "user", "content": f"Context:\n{context_str}\n\nCâu hỏi: {query}"},
             ])
