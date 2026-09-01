@@ -64,10 +64,10 @@ Sau bước 5, file `answers_50q.json` được tạo. **Đây là input cho Pha
 | 4 | `cluster_analysis()` | Matrix worst_metric × distribution, tìm dominant failure |
 
 **Pass criteria:**
-- [ ] 3 distributions đúng số lượng (20/20/10)
-- [ ] `run_ragas_50q()` trả về 50 `RagasResult`
-- [ ] `bottom_10()` có đủ keys: rank, diagnosis, suggested_fix
-- [ ] `cluster_analysis()` có matrix + insight string
+- [x] 3 distributions đúng số lượng (20/20/10)
+- [x] `run_ragas_50q()` trả về 50 `RagasResult`
+- [x] `bottom_10()` có đủ keys: rank, diagnosis, suggested_fix
+- [x] `cluster_analysis()` có matrix + insight string
 
 ---
 
@@ -93,10 +93,10 @@ p_e = expected agreement by chance
 Thang đo: `>0.6 = substantial`, `>0.8 = almost perfect`
 
 **Pass criteria:**
-- [ ] `pairwise_judge()` trả về winner ∈ {"A", "B", "tie"} + reasoning
-- [ ] `swap_and_average()` phát hiện đúng position inconsistency
-- [ ] `cohen_kappa()` trả về giá trị ∈ [-1, 1]
-- [ ] `bias_report()` có position_bias_rate + verbosity_bias
+- [x] `pairwise_judge()` trả về winner ∈ {"A", "B", "tie"} + reasoning
+- [x] `swap_and_average()` phát hiện đúng position inconsistency
+- [x] `cohen_kappa()` trả về giá trị ∈ [-1, 1]
+- [x] `bias_report()` có position_bias_rate + verbosity_bias
 
 ---
 
@@ -171,10 +171,10 @@ Bạn **có thể mở rộng** `rails.co` để cải thiện pass rate trong T
 ```
 
 **Pass criteria:**
-- [ ] `pii_scan()` detect VN_CCCD và VN_PHONE
-- [ ] Adversarial suite ≥ 15/20 passed
-- [ ] `measure_p95_latency()` trả về đúng structure
-- [ ] `reports/blueprint.md` được điền đầy đủ
+- [x] `pii_scan()` detect VN_CCCD và VN_PHONE
+- [x] Adversarial suite ≥ 15/20 passed
+- [x] `measure_p95_latency()` trả về đúng structure
+- [x] `reports/blueprint.md` được điền đầy đủ
 
 ---
 
